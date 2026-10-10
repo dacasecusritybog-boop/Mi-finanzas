@@ -14,52 +14,54 @@ jobs:
       - name: Descargar repositorio
         uses: actions/checkout@v4
       - name: Instalar Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-      - name: Preparar Android SDK
+      - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
-      - name: Verificar Java
-        run: java -version
+        with:
+          packages: ''
+      - name: Aceptar licencias Android
+        run: yes | sdkmanager --licenses || true
       - name: Encontrar y descomprimir ZIP
         run: |
           set -eu
           ZIP_FILE=$(find . -maxdepth 1 -type f \
             -name '*.zip' -print -quit)
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No hay ningún ZIP en la raíz."
+            echo "ERROR: No se encontró el ZIP."
             ls -la
             exit 1
           fi
-          echo "ZIP encontrado: $ZIP_FILE"
           mkdir -p proyecto
           unzip -oq "$ZIP_FILE" -d proyecto
-          echo "Contenido extraído:"
-          ls -la proyecto
-      - name: Encontrar proyecto Android
-        id: android
+          find proyecto -maxdepth 4 -type f | head -200
+      - name: Encontrar proyecto Gradle
+        id: proyecto
         run: |
           set -eu
           WRAPPER=$(find proyecto -type f \
             -name gradlew -print -quit)
           if [ -z "$WRAPPER" ]; then
             echo "ERROR: El ZIP no contiene gradlew."
-            echo "Archivos encontrados:"
-            find proyecto -maxdepth 5 -type f | head -200
             exit 1
           fi
-          ANDROID_DIR=$(dirname "$WRAPPER")
-          echo "dir=$ANDROID_DIR" >> "$GITHUB_OUTPUT"
+          DIR=$(dirname "$WRAPPER")
           chmod +x "$WRAPPER"
-          echo "Proyecto Android: $ANDROID_DIR"
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+      - name: Instalar SDK requerido
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platform-tools" "platforms;android-35" \
+            "build-tools;35.0.0"
       - name: Compilar APK
         run: |
-          cd "${{ steps.android.outputs.dir }}"
+          cd "${{ steps.proyecto.outputs.dir }}"
           ./gradlew assembleDebug --no-daemon
       - name: Publicar APK
-        if: success()
         uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: Mis-Finanzas-APK
           path: proyecto/**/build/outputs/apk/debug/*.apk
