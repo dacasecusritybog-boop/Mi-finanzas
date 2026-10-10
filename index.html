@@ -278,10 +278,10 @@ async function submitAuth(){
     if(authMode==='signup'){
       if(pass.length<8){renderAuth('La contraseña debe tener al menos 8 caracteres.');return;}
       const name=(document.getElementById('au-name')?.value||'').trim();
-      const {data,error}=await authClient.auth.signUp({email,password:pass,options:{data:{full_name:name},emailRedirectTo:window.location.href.split('#')[0]}});if(error)throw error;
+      const {data,error}=await authClient.auth.signUp({email,password:pass,options:{data:{full_name:name},emailRedirectTo:'https://dacasecusritybog-boop.github.io/Mi-finanzas/'}});if(error)throw error;
       if(data.session&&data.user)await activateUser(data.user);else renderAuth('Cuenta creada. Revisa tu correo y confirma la dirección antes de iniciar sesión.',true);
     }else if(authMode==='reset'){
-      const {error}=await authClient.auth.resetPasswordForEmail(email,{redirectTo:window.location.href.split('#')[0]});if(error)throw error;
+      const {error}=await authClient.auth.resetPasswordForEmail(email,{redirectTo:'https://dacasecusritybog-boop.github.io/Mi-finanzas/'});if(error)throw error;
       renderAuth('Si el correo está registrado, recibirás un enlace para restablecer la contraseña.',true);
     }else{
       const {data,error}=await authClient.auth.signInWithPassword({email,password:pass});if(error)throw error;
