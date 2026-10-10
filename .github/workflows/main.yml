@@ -1,94 +1,67 @@
 name: Compilar Mis Finanzas APK
-
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-
 permissions:
   contents: read
-
 jobs:
   build:
     name: Compilar APK Android
     runs-on: ubuntu-latest
-
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
-
       - name: Instalar Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
-
       - name: Preparar Android SDK
         uses: android-actions/setup-android@v3
-
       - name: Verificar Java
+        run: java -version
+      - name: Encontrar y descomprimir ZIP
         run: |
-          java -version
-          echo "JAVA_HOME=$JAVA_HOME"
-
-      - name: Instalar herramientas Android
-        run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-          yes | sdkmanager --licenses
-
-      - name: Descomprimir proyecto
-        run: |
+          set -eu
           ZIP_FILE=$(find . -maxdepth 1 -type f \
-            -name 'Mis-Finanzas-v1.3-GitHub-listo.zip' \
-            -print -quit)
-
+            -name '*.zip' -print -quit)
           if [ -z "$ZIP_FILE" ]; then
-            ZIP_FILE=$(find . -maxdepth 1 -type f \
-              -name 'mis-finanzas-nativa-v1.3-todos-los-bancos.zip' \
-              -print -quit)
-          fi
-
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No se encontró el ZIP."
+            echo "ERROR: No hay ningún ZIP en la raíz."
             ls -la
             exit 1
           fi
-
+          echo "ZIP encontrado: $ZIP_FILE"
           mkdir -p proyecto
           unzip -oq "$ZIP_FILE" -d proyecto
-
-          echo "Contenido del proyecto:"
-          find proyecto -maxdepth 3 -type f | head -100
-
-      - name: Encontrar Gradle
-        id: gradle
+          echo "Contenido extraído:"
+          ls -la proyecto
+      - name: Encontrar proyecto Android
+        id: android
         run: |
+          set -eu
           WRAPPER=$(find proyecto -type f \
             -name gradlew -print -quit)
-
           if [ -z "$WRAPPER" ]; then
-            echo "ERROR: No se encontró gradlew."
+            echo "ERROR: El ZIP no contiene gradlew."
+            echo "Archivos encontrados:"
+            find proyecto -maxdepth 5 -type f | head -200
             exit 1
           fi
-
           ANDROID_DIR=$(dirname "$WRAPPER")
-          echo "android_dir=$ANDROID_DIR" >> "$GITHUB_OUTPUT"
+          echo "dir=$ANDROID_DIR" >> "$GITHUB_OUTPUT"
           chmod +x "$WRAPPER"
-
+          echo "Proyecto Android: $ANDROID_DIR"
       - name: Compilar APK
-        working-directory: .
         run: |
-          cd "${{ steps.gradle.outputs.android_dir }}"
+          cd "${{ steps.android.outputs.dir }}"
           ./gradlew assembleDebug --no-daemon
-
       - name: Publicar APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Mis-Finanzas-APK
-          path: |
-            proyecto/**/build/outputs/apk/debug/*.apk
+          path: proyecto/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 7
