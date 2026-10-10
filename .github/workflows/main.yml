@@ -1,0 +1,53 @@
+name: Compilar Mis Finanzas APK
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+      - name: Instalar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Preparar proyecto ZIP
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -type f \
+            -name 'Mis-Finanzas-v1.3-GitHub-listo.zip' \
+            -print -quit)
+          if [ -z "$ZIP_FILE" ]; then
+            ZIP_FILE=$(find . -maxdepth 1 -type f \
+              -name 'mis-finanzas-nativa-v1.3-todos-los-bancos.zip' \
+              -print -quit)
+          fi
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No se encontró el ZIP del proyecto."
+            ls -la
+            exit 1
+          fi
+          mkdir proyecto
+          unzip -q "$ZIP_FILE" -d proyecto
+          if [ ! -f proyecto/android/gradlew ]; then
+            echo "No se encontró android/gradlew."
+            find proyecto -maxdepth 3 -type f
+            exit 1
+          fi
+      - name: Compilar APK
+        run: |
+          cd proyecto/android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mis-Finanzas-APK
+          path: proyecto/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
